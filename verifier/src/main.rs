@@ -280,6 +280,37 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_timestamp_within_window() {
+        let n = now();
+        // Timestamp just inside the window
+        assert!(validate_timestamp_internal(Some(n - 299), 300, 60, n).is_ok());
+        // Timestamp at the window edge
+        assert!(validate_timestamp_internal(Some(n - 300), 300, 60, n).is_ok());
+        // Timestamp just outside the window
+        let res = validate_timestamp_internal(Some(n - 301), 300, 60, n);
+        assert!(matches!(res, Err(VerifyError::SignatureExpired { .. })));
+    }
+
+    #[test]
+    fn test_validate_timestamp_future() {
+        let n = now();
+        // Timestamp just within allowed future skew
+        assert!(validate_timestamp_internal(Some(n + 59), 300, 60, n).is_ok());
+        // Timestamp at the future skew edge
+        assert!(validate_timestamp_internal(Some(n + 60), 300, 60, n).is_ok());
+        // Timestamp just outside allowed future skew
+        let res = validate_timestamp_internal(Some(n + 61), 300, 60, n);
+        assert!(matches!(res, Err(VerifyError::FutureTimestamp { .. })));
+    }
+
+    #[test]
+    fn test_validate_timestamp_missing() {
+        let n = now();
+        let res = validate_timestamp_internal(None, 300, 60, n);
+        assert!(matches!(res, Err(VerifyError::MissingTimestamp)));
+    }
+
+    #[test]
     fn test_timestamp_expired() {
         let n = now();
         let res = validate_timestamp_internal(Some(n - 1000), 300, 60, n);
